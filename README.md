@@ -1,0 +1,1 @@
+# GES Verim Takip SaaS

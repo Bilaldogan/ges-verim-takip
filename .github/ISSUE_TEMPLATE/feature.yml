@@ -1,0 +1,36 @@
+name: Feature
+description: Yeni ozellik veya iyilestirme fikri
+title: "[Feature] "
+labels: ["type:feature", "status:triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Cozulen problem
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Onerilen cozum
+      description: MVP icin yeter ne? Over-engineering yapmayalim.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Oncelik
+      options:
+        - "high — launch/MRR icin kritik"
+        - "medium — value ekler ama bloklamaz"
+        - "low — nice-to-have"
+      default: 1
+    validations:
+      required: true
+
+  - type: textarea
+    id: effort
+    attributes:
+      label: Tahmini efor (opsiyonel)

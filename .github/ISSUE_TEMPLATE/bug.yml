@@ -1,0 +1,39 @@
+name: Bug Report
+description: Bir hata raporla
+title: "[Bug] "
+labels: ["type:bug", "status:triage"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Ne oldu?
+      description: Hata mesaji varsa birebir kopyala
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Nasil tekrarlanir?
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Beklenen davranis
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Oncelik
+      options:
+        - "high — launch/deploy blocker"
+        - "medium — rahatsiz edici ama calisabiliyor"
+        - "low — nice-to-have fix"
+      default: 1
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Ortam (opsiyonel)

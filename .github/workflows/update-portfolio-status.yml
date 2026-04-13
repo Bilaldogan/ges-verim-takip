@@ -1,0 +1,109 @@
+name: Update Portfolio Status
+
+# Bu sub-repo'daki bir event tetiklendiginde (release published / manuel)
+# `Bilaldogan/ideas` repo'suna `repository_dispatch` event'i gonderir.
+# Ideas repo'sundaki `portfolio-status-update.yml` workflow'u registry.json'i
+# gunceller, bu da `sync-project-board.yml`'i tetikler ve ana board guncellenir.
+#
+# Bu dosya `ideas/.github/templates/` altinda template'tir.
+# Distribute eden script: `ideas/.github/scripts/distribute-portfolio-workflow.py`
+#
+# Sub-repo'larda manuel olarak duzenlenmemeli — template degisirse script ile
+# yeniden dagitilir.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      lifecycle:
+        description: 'Yeni lifecycle (registry.json status alani)'
+        required: true
+        type: choice
+        options:
+          - building
+          - testing
+          - deployed
+          - app-store-review
+          - waiting-for-review
+          - blocked
+          - parked
+          - personal-use
+          - planning
+          - queued
+      reason:
+        description: 'Neden (commit mesajinda gozukur)'
+        required: false
+        type: string
+        default: 'Manual update via workflow_dispatch'
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Determine lifecycle and reason
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "lifecycle=deployed" >> "$GITHUB_OUTPUT"
+            echo "reason=Release ${{ github.event.release.tag_name }} published" >> "$GITHUB_OUTPUT"
+          else
+            echo "lifecycle=${{ github.event.inputs.lifecycle }}" >> "$GITHUB_OUTPUT"
+            echo "reason=${{ github.event.inputs.reason }}" >> "$GITHUB_OUTPUT"
+          fi
+          # ges-verim-takip template variable'i distribute scriptince doldurulur.
+          echo "slug=ges-verim-takip" >> "$GITHUB_OUTPUT"
+
+      - name: Send repository_dispatch to ideas repo
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          if [ -z "$GH_PAT" ]; then
+            echo "Hata: GH_PAT secret tanimli degil. Sub-repo settings'ten ekleyin."
+            exit 1
+          fi
+          payload=$(cat <<EOF
+          {
+            "event_type": "portfolio_status_update",
+            "client_payload": {
+              "slug": "${{ steps.vars.outputs.slug }}",
+              "lifecycle": "${{ steps.vars.outputs.lifecycle }}",
+              "source": "${{ github.repository }}",
+              "reason": "${{ steps.vars.outputs.reason }}"
+            }
+          }
+          EOF
+          )
+          echo "Payload:"
+          echo "$payload"
+          response=$(curl -sS -w "\n%{http_code}" \
+            -X POST \
+            -H "Authorization: token $GH_PAT" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/Bilaldogan/ideas/dispatches \
+            -d "$payload")
+          status_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          if [ "$status_code" != "204" ]; then
+            echo "Hata: dispatch basarisiz (HTTP $status_code)"
+            echo "$body"
+            exit 1
+          fi
+          echo "OK: dispatch gonderildi (HTTP 204)"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Portfolio Status Dispatch"
+            echo ""
+            echo "- **Slug:** \`${{ steps.vars.outputs.slug }}\`"
+            echo "- **Lifecycle:** \`${{ steps.vars.outputs.lifecycle }}\`"
+            echo "- **Reason:** ${{ steps.vars.outputs.reason }}"
+            echo "- **Trigger:** ${{ github.event_name }}"
+          } >> "$GITHUB_STEP_SUMMARY"
